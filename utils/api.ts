@@ -8,9 +8,26 @@ const DEFAULT_DEV_HOST = Platform.select({
   default: 'http://localhost:3001',
 });
 
-const API_BASE = __DEV__
-  ? `${DEFAULT_DEV_HOST}/api`
-  : 'https://your-production-url.com/api';
+/**
+ * Production:
+ * - Web (e.g. Vercel): same-origin `/api`
+ * - Native: set EXPO_PUBLIC_API_URL to your deployed origin (no trailing slash)
+ */
+function getApiBase(): string {
+  if (__DEV__) {
+    return `${DEFAULT_DEV_HOST}/api`;
+  }
+  const envUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '');
+  if (envUrl) {
+    return `${envUrl}/api`;
+  }
+  if (Platform.OS === 'web') {
+    return '/api';
+  }
+  return 'https://your-production-url.com/api';
+}
+
+const API_BASE = getApiBase();
 
 export type AIAction = {
   type: 'ADD' | 'REMOVE' | 'UPDATE_QTY' | 'CLEAR';

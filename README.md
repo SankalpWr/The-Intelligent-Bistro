@@ -39,9 +39,13 @@ intelligent-bistro/
 │   ├── api.ts                 # parseOrderMessage – calls backend, applies actions
 │   └── icons.tsx              # Tiny dependency-free icon component
 ├── server/
-│   ├── index.js               # Express entry (+ /api/health)
+│   ├── app.js                 # Express app (Vercel + local)
+│   ├── index.js               # Local dev: listens on PORT
 │   ├── routes/order.js        # POST /api/parse-order – Anthropic + Zod
 │   └── prompts/system.js      # Claude system prompt with full menu rules
+├── api/
+│   └── index.js               # Vercel Serverless entry → Express app
+├── vercel.json                # Static web export + /api rewrite to function
 ├── global.css                 # NativeWind directives
 ├── tailwind.config.js         # Theme tokens (colors + fonts)
 ├── babel.config.js            # NativeWind + Reanimated plugins
@@ -107,6 +111,56 @@ Then press `i` for the iOS Simulator, `a` for the Android Emulator, or scan the 
 > **Android note:** the Android emulator can't reach `localhost` on your host machine. `utils/api.ts` automatically rewrites the dev host to `10.0.2.2:3001` when running on Android, which is the Android emulator's loopback to the host.
 >
 > If you're testing on a physical device with Expo Go, change `DEFAULT_DEV_HOST` in `utils/api.ts` to your computer's LAN IP (e.g. `http://192.168.1.42:3001`), and make sure your firewall allows port 3001.
+
+## Deploy on Vercel
+
+This repo is set up so **Vercel** serves the **Expo web** static export from `dist/` and routes **`/api/*`** to a **Serverless Function** that runs the same Express app as local development.
+
+### 1. Push the latest code
+
+Commit and push this repository to GitHub (or connect the folder in the Vercel dashboard).
+
+### 2. Create a Vercel project
+
+1. Open [vercel.com](https://vercel.com) → **Add New…** → **Project**.
+2. Import the Git repository.
+3. Vercel should pick up `vercel.json`:
+   - **Build Command:** `npx expo export --platform web`
+   - **Output Directory:** `dist`
+   - **Install Command:** `npm install`
+4. Deploy. (The first build may take a few minutes while dependencies install.)
+
+### 3. Environment variables
+
+In the Vercel project → **Settings** → **Environment Variables**, add:
+
+| Name | Value | Environments |
+| ---- | ----- | ------------ |
+| `ANTHROPIC_API_KEY` | Your Anthropic API key | Production, Preview, Development |
+
+Redeploy after saving env vars so the function sees them.
+
+### 4. Smoke test
+
+- Static site: open your deployment URL in a browser.
+- API: `GET https://your-deployment.vercel.app/api/health` should return JSON with `"ok": true`.
+- In the web app, open the AI chat; requests go to **`/api/parse-order`** on the same origin (no CORS issues).
+
+### 5. Expo Go / native builds pointing at Vercel
+
+For **native** apps (not web), set **`EXPO_PUBLIC_API_URL`** at build time to your deployment origin **without** a trailing slash, e.g. `https://your-app.vercel.app`. `utils/api.ts` will call `https://your-app.vercel.app/api/...`. If you omit it, production native builds still fall back to the placeholder URL until you set this.
+
+### Local preview of the production web bundle
+
+```bash
+npm install
+npm run build
+npx serve dist
+```
+
+### Note on SSL / corporate networks
+
+If `npx vercel` fails locally with certificate errors, use **Import Git Repository** in the dashboard instead, or fix Node/Git SSL trust on your machine (e.g. corporate proxy CA).
 
 ## Trying the AI chat
 
