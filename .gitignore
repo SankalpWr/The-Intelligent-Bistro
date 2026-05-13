@@ -8,3 +8,5 @@ web-build/
 .env.local
 server/.env
 expo-env.d.ts
+
+.vercel
