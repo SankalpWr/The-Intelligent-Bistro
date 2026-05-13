@@ -1,11 +1,9 @@
 const express = require('express');
-const Anthropic = require('@anthropic-ai/sdk');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { z } = require('zod');
 const systemPrompt = require('../prompts/system');
 
 const router = express.Router();
-
-const client = new Anthropic();
 
 const ActionSchema = z.object({
   type: z.enum(['ADD', 'REMOVE', 'UPDATE_QTY', 'CLEAR']),
@@ -28,9 +26,9 @@ const VALID_ITEM_IDS = new Set([
 ]);
 
 /**
- * Pull the first balanced JSON object out of a string. Claude is asked to
- * respond with pure JSON, but this gives us a safety net if it wraps the
- * payload in prose or markdown fences.
+ * Pull the first balanced JSON object out of a string. The model is asked to
+ * respond with pure JSON, but this is a safety net if it wraps the payload in
+ * prose or markdown fences.
  */
 function extractJsonObject(text) {
   if (!text) return null;
@@ -69,41 +67,56 @@ function extractJsonObject(text) {
   return null;
 }
 
+const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+
+function getClient() {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (!apiKey) return null;
+  return new GoogleGenerativeAI(apiKey);
+}
+
 router.post('/parse-order', async (req, res) => {
   const { message, cartContext } = req.body ?? {};
   if (!message || typeof message !== 'string') {
     return res.status(400).json({ error: 'message (string) is required' });
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
+  const client = getClient();
+  if (!client) {
     return res.status(500).json({
       error: 'Server misconfigured',
-      details: 'ANTHROPIC_API_KEY is not set in server/.env',
+      details:
+        'GEMINI_API_KEY is not set. Add it to server/.env (local) or Vercel env vars.',
     });
   }
 
   try {
-    const cartContextText = Array.isArray(cartContext) && cartContext.length > 0
-      ? `Current cart: ${JSON.stringify(cartContext)}`
-      : 'Current cart: (empty)';
+    const cartContextText =
+      Array.isArray(cartContext) && cartContext.length > 0
+        ? `Current cart: ${JSON.stringify(cartContext)}`
+        : 'Current cart: (empty)';
 
     const userContent = `${cartContextText}\n\nUser says: "${message}"`;
 
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userContent }],
+    const model = client.getGenerativeModel({
+      model: MODEL_NAME,
+      systemInstruction: systemPrompt,
+      generationConfig: {
+        responseMimeType: 'application/json',
+        temperature: 0.4,
+        maxOutputTokens: 1024,
+      },
     });
 
-    const block = response.content.find((c) => c.type === 'text');
-    const rawText = block?.text ?? '';
-    const jsonText = extractJsonObject(rawText);
+    const result = await model.generateContent(userContent);
+    const rawText = result?.response?.text?.() ?? '';
+
+    const jsonText = extractJsonObject(rawText) ?? rawText.trim();
     if (!jsonText) {
-      console.error('Could not locate JSON object in model output:', rawText);
+      console.error('Empty model output');
       return res.status(502).json({
         error: 'Model did not return JSON',
-        details: rawText.slice(0, 200),
+        details: '(empty output)',
       });
     }
 

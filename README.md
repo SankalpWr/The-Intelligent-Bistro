@@ -12,7 +12,7 @@ A production-quality React Native (Expo) + Node.js demo of an AI-powered restaur
 - Cart screen with quantity stepper, swipe-to-delete (Reanimated + Gesture Handler), 10% service charge
 - AI chat drawer (bottom sheet) with typing indicator and suggested prompt chips
 - Haptic feedback for add-to-cart, size selection, swipe-remove, and AI confirmations
-- Express backend that calls Claude Sonnet 4 and validates the response with Zod
+- Express backend that calls Google Gemini and validates the response with Zod
 
 ## Project layout
 
@@ -57,7 +57,7 @@ intelligent-bistro/
 ## Prerequisites
 
 - Node.js 18+
-- An Anthropic API key (https://console.anthropic.com/)
+- A Google Gemini API key (https://aistudio.google.com/apikey)
 - Expo Go on a physical device (iOS or Android), **or** the iOS Simulator / Android Emulator
 
 ## Setup
@@ -79,7 +79,8 @@ cd ..
 ```bash
 cp server/.env.example server/.env
 # then edit server/.env and paste your real key
-# ANTHROPIC_API_KEY=sk-ant-...
+# GEMINI_API_KEY=AIza...
+# GEMINI_MODEL=gemini-2.0-flash   (optional override)
 # PORT=3001
 ```
 
@@ -136,7 +137,8 @@ In the Vercel project → **Settings** → **Environment Variables**, add:
 
 | Name | Value | Environments |
 | ---- | ----- | ------------ |
-| `ANTHROPIC_API_KEY` | Your Anthropic API key | Production, Preview, Development |
+| `GEMINI_API_KEY` | Your Google Gemini API key (`AIza…`) | Production, Preview, Development |
+| `GEMINI_MODEL` | _(optional)_ defaults to `gemini-2.0-flash` | Production, Preview, Development |
 
 Redeploy after saving env vars so the function sees them.
 
@@ -197,8 +199,8 @@ The client applies the actions to the Zustand store immediately, so the cart bar
 | Motion   | React Native Reanimated 3, Gesture Handler 2                        |
 | State    | Zustand                                                             |
 | Polish   | expo-haptics, expo-linear-gradient, @expo-google-fonts              |
-| Backend  | Node.js, Express, @anthropic-ai/sdk, Zod, CORS, dotenv              |
-| AI Model | `claude-sonnet-4-20250514`                                          |
+| Backend  | Node.js, Express, @google/generative-ai, Zod, CORS, dotenv         |
+| AI Model | `gemini-2.0-flash` (configurable via `GEMINI_MODEL`)               |
 
 ## Notes & customization
 

@@ -20,7 +20,8 @@ app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
     service: 'intelligent-bistro-api',
-    hasKey: !!process.env.ANTHROPIC_API_KEY,
+    hasKey: !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
+    model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
     time: new Date().toISOString(),
   });
 });
